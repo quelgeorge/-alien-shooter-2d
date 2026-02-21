@@ -1,4 +1,4 @@
-// How to run: Open index.html directly in a web browser. No server required.
+// How to run offline: python -m http.server then open http://localhost:8000
 // Desktop: WASD/Arrows = move, Mouse = aim, LMB/Space = shoot, Shift = dash, P/Esc = pause, R = restart, M = mute, ~ = debug
 // Mobile: Left thumb = joystick move, Right thumb = aim+shoot, Dash button, Pause/Mute buttons
 
@@ -40,11 +40,8 @@
     };
 
     const ENEMY_TYPES = {
-        grunt: { hp: 1, speed: 90, radius: 14, damage: 10, color: '#ff4444', flash: '#ffffff' },
-        runner: { hp: 1, speed: 150, radius: 10, damage: 8, color: '#ff66cc', flash: '#ffe6ff' },
-        tank: { hp: 4, speed: 55, radius: 20, damage: 18, color: '#cc6666', flash: '#ffd6d6' },
-        shooter: { hp: 2, speed: 75, radius: 13, damage: 10, color: '#ff8844', flash: '#fff1dd' },
-        swarm: { hp: 1, speed: 120, radius: 8, damage: 6, color: '#ff9999', flash: '#ffeaea' }
+        skitter: { hp: 1, speed: 165, radius: 11, damage: 8, color: '#8bff66', flash: '#f2ffe6', variant: 'small' },
+        brute: { hp: 5, speed: 62, radius: 21, damage: 16, color: '#9a63ff', flash: '#f1e6ff', variant: 'tank' }
     };
 
     function clamp(value, min, max) {
@@ -130,6 +127,7 @@
     let explosionsThisFrame = 0;
     const MAX_EXPLOSIONS_PER_FRAME = 4;
 
+    // ===== Input =====
     // Input state
     const keysDown = {};
     const mouse = { x: 0, y: 0, down: false, worldX: 0, worldY: 0 };
@@ -156,6 +154,7 @@
     // Sound spam limiter
     let soundTimestamps = [];
     const maxSoundsPerSecond = 20;
+    let masterVolume = 0.35;
 
     const debugMobileZones = false;
     
@@ -187,7 +186,7 @@
         if (e.key === 'm' || e.key === 'M') {
             muted = !muted;
         }
-        if (e.key === '~' || e.key === '`') {
+        if (e.key === '~' || e.key === '`' || e.key === 'F3') {
             debug = !debug;
         }
         if (e.key === '1') {
@@ -578,6 +577,7 @@
     document.addEventListener('touchstart', initAudio, { once: true });
     document.addEventListener('click', initAudio, { once: true });
 
+    // ===== Audio =====
     // Audio context and sounds (mobile-friendly lazy init)
     let audioContext = null;
     let audioInitialized = false;
@@ -602,6 +602,7 @@
     
     function playSound(frequency, duration, type = 'sine', volume = 0.3, pitchVariation = 0) {
         if (muted || !audioContext) return;
+        const scaledVolume = Math.max(0, volume * masterVolume);
         
         // Sound spam limiter
         const now = Date.now();
@@ -622,12 +623,12 @@
                 
                 osc1.type = 'square';
                 osc1.frequency.value = frequency + (Math.random() - 0.5) * pitchVariation;
-                gain1.gain.setValueAtTime(volume * 0.7, audioContext.currentTime);
+                gain1.gain.setValueAtTime(scaledVolume * 0.7, audioContext.currentTime);
                 gain1.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
                 
                 osc2.type = 'square';
                 osc2.frequency.value = frequency * 2 + (Math.random() - 0.5) * pitchVariation;
-                gain2.gain.setValueAtTime(volume * 0.3, audioContext.currentTime);
+                gain2.gain.setValueAtTime(scaledVolume * 0.3, audioContext.currentTime);
                 gain2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration * 0.5);
                 
                 osc1.connect(gain1);
@@ -644,7 +645,7 @@
                 osc.type = 'triangle';
                 osc.frequency.setValueAtTime(frequency, audioContext.currentTime);
                 osc.frequency.exponentialRampToValueAtTime(frequency * 0.6, audioContext.currentTime + duration);
-                gain.gain.setValueAtTime(volume * 0.8, audioContext.currentTime);
+                gain.gain.setValueAtTime(scaledVolume * 0.8, audioContext.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
                 osc.connect(gain);
                 gain.connect(audioContext.destination);
@@ -655,7 +656,7 @@
                 const gain = audioContext.createGain();
                 osc.type = 'sawtooth';
                 osc.frequency.setValueAtTime(frequency, audioContext.currentTime);
-                gain.gain.setValueAtTime(volume * 0.25, audioContext.currentTime);
+                gain.gain.setValueAtTime(scaledVolume * 0.25, audioContext.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
                 osc.connect(gain);
                 gain.connect(audioContext.destination);
@@ -667,7 +668,7 @@
                 osc.type = 'sawtooth';
                 osc.frequency.setValueAtTime(frequency * 0.6, audioContext.currentTime);
                 osc.frequency.exponentialRampToValueAtTime(frequency * 1.1, audioContext.currentTime + duration);
-                gain.gain.setValueAtTime(volume * 0.5, audioContext.currentTime);
+                gain.gain.setValueAtTime(scaledVolume * 0.5, audioContext.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
                 osc.connect(gain);
                 gain.connect(audioContext.destination);
@@ -683,12 +684,12 @@
                 osc1.type = 'sawtooth';
                 osc1.frequency.setValueAtTime(frequency, audioContext.currentTime);
                 osc1.frequency.exponentialRampToValueAtTime(frequency * 0.5, audioContext.currentTime + duration);
-                gain1.gain.setValueAtTime(volume, audioContext.currentTime);
+                gain1.gain.setValueAtTime(scaledVolume, audioContext.currentTime);
                 gain1.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
                 
                 osc2.type = 'sawtooth';
                 osc2.frequency.value = frequency * 0.7;
-                gain2.gain.setValueAtTime(volume * 0.5, audioContext.currentTime);
+                gain2.gain.setValueAtTime(scaledVolume * 0.5, audioContext.currentTime);
                 gain2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration * 0.6);
                 
                 osc1.connect(gain1);
@@ -705,7 +706,7 @@
                 osc.type = 'sine';
                 osc.frequency.setValueAtTime(frequency, audioContext.currentTime);
                 osc.frequency.exponentialRampToValueAtTime(frequency * 1.6, audioContext.currentTime + duration);
-                gain.gain.setValueAtTime(volume, audioContext.currentTime);
+                gain.gain.setValueAtTime(scaledVolume, audioContext.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
                 osc.connect(gain);
                 gain.connect(audioContext.destination);
@@ -717,7 +718,7 @@
                 osc.type = 'triangle';
                 osc.frequency.setValueAtTime(frequency, audioContext.currentTime);
                 osc.frequency.exponentialRampToValueAtTime(frequency * 0.7, audioContext.currentTime + duration);
-                gain.gain.setValueAtTime(volume, audioContext.currentTime);
+                gain.gain.setValueAtTime(scaledVolume, audioContext.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
                 osc.connect(gain);
                 gain.connect(audioContext.destination);
@@ -728,7 +729,31 @@
                 const gain = audioContext.createGain();
                 osc.type = 'square';
                 osc.frequency.setValueAtTime(frequency, audioContext.currentTime);
-                gain.gain.setValueAtTime(volume * 0.5, audioContext.currentTime);
+                gain.gain.setValueAtTime(scaledVolume * 0.5, audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioContext.destination);
+                osc.start();
+                osc.stop(audioContext.currentTime + duration);
+            } else if (type === 'rifle') {
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(frequency, audioContext.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(frequency * 0.45, audioContext.currentTime + duration);
+                gain.gain.setValueAtTime(scaledVolume * 0.9, audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioContext.destination);
+                osc.start();
+                osc.stop(audioContext.currentTime + duration);
+            } else if (type === 'alienHit') {
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(frequency, audioContext.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(frequency * 1.25, audioContext.currentTime + duration);
+                gain.gain.setValueAtTime(scaledVolume * 0.7, audioContext.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
                 osc.connect(gain);
                 gain.connect(audioContext.destination);
@@ -741,7 +766,7 @@
                 osc.type = 'sawtooth';
                 osc.frequency.setValueAtTime(frequency * 0.5, audioContext.currentTime);
                 osc.frequency.exponentialRampToValueAtTime(frequency * 1.5, audioContext.currentTime + duration);
-                gain.gain.setValueAtTime(volume, audioContext.currentTime);
+                gain.gain.setValueAtTime(scaledVolume, audioContext.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
                 osc.connect(gain);
                 gain.connect(audioContext.destination);
@@ -757,9 +782,9 @@
                 osc1.frequency.value = frequency;
                 osc2.type = 'sine';
                 osc2.frequency.value = frequency * 1.5;
-                gain1.gain.setValueAtTime(volume, audioContext.currentTime);
+                gain1.gain.setValueAtTime(scaledVolume, audioContext.currentTime);
                 gain1.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
-                gain2.gain.setValueAtTime(volume * 0.7, audioContext.currentTime);
+                gain2.gain.setValueAtTime(scaledVolume * 0.7, audioContext.currentTime);
                 gain2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
                 osc1.connect(gain1);
                 osc2.connect(gain2);
@@ -778,7 +803,7 @@
                 const pitch = pitchVariation > 0 ? frequency + (Math.random() - 0.5) * pitchVariation : frequency;
                 oscillator.frequency.value = pitch;
                 oscillator.type = type;
-                gainNode.gain.setValueAtTime(volume, audioContext.currentTime);
+                gainNode.gain.setValueAtTime(scaledVolume, audioContext.currentTime);
                 gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
                 oscillator.start(audioContext.currentTime);
                 oscillator.stop(audioContext.currentTime + duration);
@@ -812,6 +837,7 @@
             this.recoilOffset = 0;
             this.shieldCharges = 0;
             this.shieldTimer = 0;
+            this.muzzleFlash = 0;
         }
 
         update(dt) {
@@ -881,6 +907,7 @@
                 this.recoilOffset -= dt * 20;
                 if (this.recoilOffset < 0) this.recoilOffset = 0;
             }
+            this.muzzleFlash = Math.max(0, this.muzzleFlash - dt * 8);
             
             if (!this.dashActive) {
                 // Normal movement - mobile joystick or keyboard
@@ -1027,14 +1054,40 @@
                 ctx.globalAlpha = 0.5 + 0.5 * Math.sin(this.invulnerable * 20);
             }
             
-            ctx.fillStyle = '#4a9eff';
+            // Marine body
+            ctx.fillStyle = '#2f6ca8';
+            ctx.fillRect(-10, -8, 15, 16);
+            ctx.fillStyle = '#1c3f63';
+            ctx.fillRect(-8, -6, 11, 12);
+
+            // Marine helmet
+            ctx.fillStyle = '#6ea6d9';
             ctx.beginPath();
-            ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+            ctx.arc(-1, -11, 7, 0, Math.PI * 2);
             ctx.fill();
-            
-            ctx.fillStyle = '#2a6fbf';
-            ctx.fillRect(this.radius - 2 - this.recoilOffset, -3, 12, 6);
-            
+            ctx.fillStyle = '#bfe7ff';
+            ctx.fillRect(-5, -14, 7, 4);
+
+            // Rifle
+            ctx.fillStyle = '#3f4b57';
+            ctx.fillRect(3 - this.recoilOffset, -3, 16, 6);
+            ctx.fillStyle = '#8a98a8';
+            ctx.fillRect(14 - this.recoilOffset, -2, 5, 4);
+
+            // Muzzle flash VFX
+            if (this.muzzleFlash > 0) {
+                ctx.globalAlpha = this.muzzleFlash;
+                ctx.fillStyle = '#ffe9a0';
+                ctx.beginPath();
+                ctx.moveTo(20 - this.recoilOffset, 0);
+                ctx.lineTo(28 - this.recoilOffset, -4);
+                ctx.lineTo(32 - this.recoilOffset, 0);
+                ctx.lineTo(28 - this.recoilOffset, 4);
+                ctx.closePath();
+                ctx.fill();
+                ctx.globalAlpha = 1;
+            }
+
             ctx.restore();
             
             // HP bar
@@ -1155,55 +1208,60 @@
             const dx = player.x - this.x;
             const dy = player.y - this.y;
             const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            const nx = dx / dist;
+            const ny = dy / dist;
 
-            if (this.type === 'runner') {
-                const strafe = dist < 180 ? 1 : 0.4;
-                const tx = (dx / dist) * (1 - strafe) + (-dy / dist) * strafe;
-                const ty = (dy / dist) * (1 - strafe) + (dx / dist) * strafe;
-                this.x += tx * this.speed * dt;
-                this.y += ty * this.speed * dt;
-            } else if (this.type === 'shooter') {
-                const desired = 220;
-                let vx = dx / dist;
-                let vy = dy / dist;
-                if (dist < desired * 0.8) {
-                    vx = -vx;
-                    vy = -vy;
-                } else if (dist > desired * 1.2) {
-                    // keep moving toward
-                } else {
-                    const strafeDir = Math.sign(Math.sin((performance.now() / 500) + this.x)) || 1;
-                    const sx = -vy * strafeDir;
-                    const sy = vx * strafeDir;
-                    vx = sx;
-                    vy = sy;
-                }
-                this.x += vx * this.speed * dt;
-                this.y += vy * this.speed * dt;
-
-                this.shootCooldown -= dt;
-                if (this.shootCooldown <= 0 && dist < 520) {
-                    spawnEnemyBullet(this.x, this.y, Math.atan2(dy, dx));
-                    this.shootCooldown = randRange(1.1, 1.7);
-                }
+            if (this.type === 'skitter') {
+                const wobble = Math.sin((performance.now() + this.x * 10) * 0.015) * 0.8;
+                const tx = nx + (-ny * wobble);
+                const ty = ny + (nx * wobble);
+                const len = Math.sqrt(tx * tx + ty * ty) || 1;
+                this.x += (tx / len) * this.speed * dt;
+                this.y += (ty / len) * this.speed * dt;
             } else {
-                this.x += (dx / dist) * this.speed * dt;
-                this.y += (dy / dist) * this.speed * dt;
+                this.x += nx * this.speed * dt;
+                this.y += ny * this.speed * dt;
             }
         }
 
         render(ctx) {
-            ctx.fillStyle = this.hitFlash > 0 ? this.flashColor : this.color;
-            ctx.shadowBlur = this.type === 'tank' ? 8 : 5;
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            const baseColor = this.hitFlash > 0 ? this.flashColor : this.color;
+            ctx.fillStyle = baseColor;
+            ctx.shadowBlur = this.type === 'brute' ? 10 : 6;
             ctx.shadowColor = this.color;
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-            ctx.fill();
+
+            if (this.type === 'skitter') {
+                ctx.beginPath();
+                ctx.ellipse(0, 0, this.radius, this.radius * 0.7, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#1c2f12';
+                ctx.fillRect(-3, -2, 8, 4);
+                ctx.strokeStyle = '#ccff99';
+                ctx.lineWidth = 2;
+                for (let i = -1; i <= 1; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(-this.radius + 2, i * 4);
+                    ctx.lineTo(-this.radius - 5, i * 6);
+                    ctx.moveTo(this.radius - 2, i * 4);
+                    ctx.lineTo(this.radius + 5, i * 6);
+                    ctx.stroke();
+                }
+            } else {
+                ctx.beginPath();
+                ctx.ellipse(0, 0, this.radius, this.radius * 0.85, 0, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#d9c6ff';
+                ctx.beginPath();
+                ctx.arc(-5, -3, 3, 0, Math.PI * 2);
+                ctx.arc(5, -3, 3, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.fillStyle = '#4d2f88';
+                ctx.fillRect(-6, 3, 12, 4);
+            }
             ctx.shadowBlur = 0;
-            
-            ctx.strokeStyle = '#aa0000';
-            ctx.lineWidth = this.type === 'tank' ? 3 : 2;
-            ctx.stroke();
+            ctx.restore();
         }
     }
 
@@ -1371,6 +1429,7 @@
         }
     }
 
+    // ===== Entities / Spawning =====
     // Game entities
     let player = new Player();
     let enemySpawnTimer = 0;
@@ -1385,8 +1444,11 @@
     }
 
     function addShake(intensity) {
-        screenShake.x += (Math.random() - 0.5) * intensity * 2;
-        screenShake.y += (Math.random() - 0.5) * intensity * 2;
+        const capped = clamp(intensity, 0, 12);
+        screenShake.x += (Math.random() - 0.5) * capped * 2;
+        screenShake.y += (Math.random() - 0.5) * capped * 2;
+        screenShake.x = clamp(screenShake.x, -16, 16);
+        screenShake.y = clamp(screenShake.y, -16, 16);
     }
 
     function spawnEnemyAtEdge(type) {
@@ -1415,27 +1477,14 @@
     }
 
     function chooseEnemyType() {
-        if (wave < 2) return 'grunt';
-        const r = Math.random();
-        if (wave < 4) return r < 0.7 ? 'grunt' : 'runner';
-        if (wave < 6) return r < 0.6 ? 'grunt' : r < 0.8 ? 'runner' : 'shooter';
-        if (wave < 8) return r < 0.45 ? 'grunt' : r < 0.65 ? 'runner' : r < 0.85 ? 'shooter' : 'tank';
-        return r < 0.35 ? 'grunt' : r < 0.55 ? 'runner' : r < 0.75 ? 'shooter' : r < 0.9 ? 'tank' : 'swarm';
+        if (wave < 3) return 'skitter';
+        const tankChance = clamp(0.12 + wave * 0.05, 0.12, 0.42);
+        return Math.random() < tankChance ? 'brute' : 'skitter';
     }
 
     function spawnEnemy() {
         if (enemies.length >= getCap('maxEnemies')) return;
-        const type = chooseEnemyType();
-        if (type === 'swarm') {
-            const count = Math.floor(randRange(3, 7));
-            let spawned = 0;
-            for (let i = 0; i < count; i++) {
-                if (spawnEnemyAtEdge('swarm')) spawned++;
-            }
-            enemiesSpawnedThisWave += spawned;
-        } else {
-            if (spawnEnemyAtEdge(type)) enemiesSpawnedThisWave += 1;
-        }
+        if (spawnEnemyAtEdge(chooseEnemyType())) enemiesSpawnedThisWave += 1;
     }
 
     function spawnBullet(x, y, angle, weapon) {
@@ -1471,6 +1520,19 @@
         }
     }
     
+    function spawnHitSparks(x, y, count = 6) {
+        const sparkCount = isMobile ? Math.min(4, count) : count;
+        if (particles.length >= getMaxParticles()) return;
+        const actual = Math.min(sparkCount, getMaxParticles() - particles.length);
+        for (let i = 0; i < actual; i++) {
+            const particle = getFromPool(particlePool, () => new Particle());
+            particle.reset(x, y, '#fff4aa', randRange(1.2, 2.4), randRange(0.12, 0.22));
+            particle.vx = (Math.random() - 0.5) * 320;
+            particle.vy = (Math.random() - 0.5) * 320;
+            particles.push(particle);
+        }
+    }
+
     function spawnShockwave(x, y, maxRadius = 40, color = '#ffaa00') {
         const shockwave = getFromPool(shockwavePool, () => new Shockwave());
         shockwave.reset(x, y, maxRadius, 0.3, color);
@@ -1606,6 +1668,7 @@
                     }
                 }
 
+                player.muzzleFlash = 0.35;
                 playSound(520, 0.04, 'laser', 0.2, 60);
                 weaponCooldown = fireRate;
                 laserHeat += weapon.heatPerShot;
@@ -1631,21 +1694,26 @@
         lastShotTime = now;
         weaponCooldown = fireRate;
         player.recoilOffset = weaponId === 'shotgun' ? 5 : 3;
-        playSound(weaponId === 'shotgun' ? 420 : 800, weaponId === 'shotgun' ? 0.08 : 0.05, weapon.sfx, 0.25, 80);
+        player.muzzleFlash = weaponId === 'shotgun' ? 0.9 : 0.7;
+        if (weaponId === 'pistol') {
+            playSound(780, 0.05, 'rifle', 0.3, 50);
+        } else {
+            playSound(weaponId === 'shotgun' ? 420 : 800, weaponId === 'shotgun' ? 0.08 : 0.05, weapon.sfx, 0.25, 80);
+        }
     }
 
     function applyEnemyDeath(enemy, index) {
-        const particleCount = enemy.type === 'tank' ? (isMobile ? 20 : 32) : (isMobile ? 12 : 20);
+        const particleCount = enemy.type === 'brute' ? (isMobile ? 20 : 32) : (isMobile ? 12 : 20);
         spawnParticles(enemy.x, enemy.y, particleCount);
-        spawnShockwave(enemy.x, enemy.y, enemy.type === 'tank' ? 60 : 40, enemy.type === 'tank' ? '#ff9966' : '#ffaa00');
+        spawnShockwave(enemy.x, enemy.y, enemy.type === 'brute' ? 60 : 40, enemy.type === 'brute' ? '#ff9966' : '#ffaa00');
         spawnPickup(enemy.x, enemy.y);
         combo++;
         comboTimer = comboResetTime;
         const scoreGain = 10 * combo;
         spawnFloater(enemy.x + 6, enemy.y - 6, `+${scoreGain}`, '#ffdd66');
         score += scoreGain;
-        hitstop = enemy.type === 'tank' ? 0.06 : 0.04;
-        addShake(enemy.type === 'tank' ? 14 : 10);
+        hitstop = enemy.type === 'brute' ? 0.06 : 0.04;
+        addShake(enemy.type === 'brute' ? 14 : 8);
         playSound(200, 0.15, 'kill', 0.3);
         removeAt(enemies, index, enemyPool);
     }
@@ -1664,6 +1732,8 @@
                 if (dist < hitRadius) {
                     enemy.hitFlash = 0.1;
                     enemy.hp -= bullet.damage * (buffs.damage > 0 ? 1.3 : 1);
+                    spawnHitSparks(bullet.x, bullet.y, enemy.type === 'brute' ? 9 : 6);
+                    playSound(360, 0.05, 'alienHit', 0.18, 20);
 
                     if (bullet.splash > 0 && !bullet.exploded && explosionsThisFrame < MAX_EXPLOSIONS_PER_FRAME) {
                         bullet.exploded = true;
