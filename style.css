@@ -187,28 +187,75 @@ body.debug-mobile-zones #rightZone {
     font-size: 24px;
 }
 
-.audio-hint {
+.audio-start-overlay {
     position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
+    inset: 0;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: rgba(3, 6, 16, 0.84);
+    z-index: 120;
+}
+
+.audio-start-overlay.show {
+    display: flex;
+}
+
+.audio-start-card {
     color: #fff;
     font-size: 18px;
     padding: 15px 25px;
     background: rgba(0, 0, 0, 0.7);
-    border: 2px solid rgba(255, 255, 255, 0.5);
+    border: 2px solid rgba(159, 226, 255, 0.75);
     border-radius: 10px;
-    pointer-events: none;
-    opacity: 0;
-    transition: opacity 0.3s;
-    z-index: 20;
+    box-shadow: 0 0 18px rgba(100, 170, 255, 0.35);
 }
 
-.audio-hint.show {
-    opacity: 1;
+.audio-panel {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 180px;
+    padding: 10px;
+    background: rgba(5, 10, 20, 0.72);
+    border: 1px solid rgba(120, 170, 255, 0.45);
+    border-radius: 8px;
+    color: #d9ecff;
+    font-size: 12px;
+    z-index: 90;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.audio-panel-title {
+    font-weight: bold;
+    color: #9fe2ff;
+    letter-spacing: 0.08em;
+}
+
+#volumeSlider {
+    width: 100%;
+}
+
+.panel-mute-btn {
+    background: rgba(150, 50, 80, 0.4);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, 0.4);
+    border-radius: 6px;
+    padding: 6px;
+    font-family: inherit;
+    cursor: pointer;
 }
 
 @media (max-width: 768px) {
+    .audio-panel {
+        width: 150px;
+        top: 8px;
+        right: 8px;
+        font-size: 11px;
+    }
+
     .joystick-base, .joystick-knob {
         left: 60px;
         bottom: 60px;
