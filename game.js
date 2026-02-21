@@ -21,14 +21,15 @@
         maxBullets: { desktop: 220, mobile: 140 },
         maxEnemyBullets: { desktop: 90, mobile: 45 },
         maxPickups: { desktop: 18, mobile: 12 },
-        maxFloaters: { desktop: 40, mobile: 20 }
+        maxFloaters: { desktop: 40, mobile: 20 },
+        maxDecals: { desktop: 90, mobile: 45 }
     };
 
     const WEAPONS = {
-        pistol: { name: 'Pistol', damage: 10, fireRate: 0.18, speed: 700, spread: 0.02, pellets: 1, color: '#ffaa00', sfx: 'shoot' },
+        pistol: { name: 'Rifle', damage: 10, fireRate: 0.18, speed: 700, spread: 0.02, pellets: 1, color: '#ffaa00', sfx: 'shoot' },
         shotgun: { name: 'Shotgun', damage: 5, fireRate: 0.6, speed: 650, spread: 0.18, pellets: 5, color: '#ffcc55', sfx: 'shotgun' },
-        laser: { name: 'Laser', damage: 4, fireRate: 0.06, speed: 0, spread: 0, pellets: 1, color: '#66ddff', sfx: 'laser', heatPerShot: 0.08, coolRate: 0.35, overheat: 1, resume: 0.5, range: 420 },
-        rocket: { name: 'Rocket', damage: 18, fireRate: 0.9, speed: 420, spread: 0.03, pellets: 1, color: '#ff8844', sfx: 'rocket', splash: 55 }
+        laser: { name: 'Plasma Beam', damage: 4, fireRate: 0.06, speed: 0, spread: 0, pellets: 1, color: '#66ddff', sfx: 'laser', heatPerShot: 0.08, coolRate: 0.35, overheat: 1, resume: 0.5, range: 420 },
+        rocket: { name: 'Rocket Launcher', damage: 18, fireRate: 0.9, speed: 420, spread: 0.03, pellets: 1, color: '#ff8844', sfx: 'rocket', splash: 55 }
     };
 
     const PICKUP_TYPES = {
@@ -42,6 +43,85 @@
     const ENEMY_TYPES = {
         skitter: { hp: 1, speed: 165, radius: 11, damage: 8, color: '#8bff66', flash: '#f2ffe6', variant: 'small' },
         brute: { hp: 5, speed: 62, radius: 21, damage: 16, color: '#9a63ff', flash: '#f1e6ff', variant: 'tank' }
+    };
+
+    function buildMarineSprite() {
+        const sprite = document.createElement('canvas');
+        sprite.width = 64;
+        sprite.height = 64;
+        const sctx = sprite.getContext('2d');
+        sctx.translate(32, 32);
+
+        sctx.fillStyle = '#27384f';
+        sctx.fillRect(-10, 8, 8, 14);
+        sctx.fillRect(2, 8, 8, 14);
+        sctx.fillStyle = '#4f617b';
+        sctx.fillRect(-11, 20, 9, 6);
+        sctx.fillRect(2, 20, 9, 6);
+
+        sctx.fillStyle = '#3a5e87';
+        sctx.fillRect(-12, -1, 24, 16);
+        sctx.fillStyle = '#537ba8';
+        sctx.fillRect(-9, 1, 18, 11);
+        sctx.fillStyle = '#7da0c9';
+        sctx.fillRect(-15, 0, 5, 10);
+        sctx.fillRect(10, 0, 5, 10);
+
+        sctx.fillStyle = '#6f8fb0';
+        sctx.beginPath();
+        sctx.arc(0, -9, 10, 0, Math.PI * 2);
+        sctx.fill();
+        sctx.fillStyle = '#cde7ff';
+        sctx.fillRect(-5, -13, 10, 5);
+        sctx.fillStyle = '#89a5c5';
+        sctx.fillRect(-3, -18, 6, 3);
+        return sprite;
+    }
+
+    function buildAlienSprite(variant) {
+        const sprite = document.createElement('canvas');
+        sprite.width = 64;
+        sprite.height = 64;
+        const sctx = sprite.getContext('2d');
+        sctx.translate(32, 32);
+
+        if (variant === 'small') {
+            sctx.fillStyle = '#5eb84c';
+            sctx.beginPath();
+            sctx.ellipse(0, 2, 12, 7, 0, 0, Math.PI * 2);
+            sctx.fill();
+            sctx.fillStyle = '#76d962';
+            sctx.beginPath();
+            sctx.ellipse(5, 0, 8, 6, 0, 0, Math.PI * 2);
+            sctx.fill();
+            sctx.fillStyle = '#20381c';
+            sctx.fillRect(-2, -1, 7, 3);
+        } else {
+            sctx.fillStyle = '#7d59c6';
+            sctx.beginPath();
+            sctx.ellipse(-1, 3, 15, 10, 0, 0, Math.PI * 2);
+            sctx.fill();
+            sctx.fillStyle = '#a47bf0';
+            sctx.beginPath();
+            sctx.ellipse(8, 0, 10, 8, 0, 0, Math.PI * 2);
+            sctx.fill();
+            sctx.fillStyle = '#dfceff';
+            sctx.beginPath();
+            sctx.arc(9, -2, 2.5, 0, Math.PI * 2);
+            sctx.arc(4, -2, 2.5, 0, Math.PI * 2);
+            sctx.fill();
+            sctx.fillStyle = '#3f2d66';
+            sctx.fillRect(-4, 4, 14, 4);
+        }
+        return sprite;
+    }
+
+    const SPRITES = {
+        marine: buildMarineSprite(),
+        alien: {
+            small: buildAlienSprite('small'),
+            tank: buildAlienSprite('tank')
+        }
     };
 
     function clamp(value, min, max) {
@@ -116,6 +196,7 @@
     const enemyBulletPool = [];
     const pickupPool = [];
     const floaterPool = [];
+    const decalPool = [];
 
     let bullets = [];
     let enemies = [];
@@ -124,6 +205,7 @@
     let enemyBullets = [];
     let pickups = [];
     let floaters = [];
+    let decals = [];
     let explosionsThisFrame = 0;
     const MAX_EXPLOSIONS_PER_FRAME = 4;
 
@@ -838,6 +920,7 @@
             this.shieldCharges = 0;
             this.shieldTimer = 0;
             this.muzzleFlash = 0;
+            this.idleT = Math.random() * Math.PI * 2;
         }
 
         update(dt) {
@@ -908,6 +991,7 @@
                 if (this.recoilOffset < 0) this.recoilOffset = 0;
             }
             this.muzzleFlash = Math.max(0, this.muzzleFlash - dt * 8);
+            this.idleT += dt * 4.5;
             
             if (!this.dashActive) {
                 // Normal movement - mobile joystick or keyboard
@@ -1012,27 +1096,30 @@
         }
 
         render(ctx) {
+            const bob = Math.sin(this.idleT) * 1.5;
+
             // Render ghost afterimages
             this.ghostAfterimages.forEach(ghost => {
                 ctx.save();
                 ctx.globalAlpha = ghost.alpha;
-                ctx.translate(ghost.x, ghost.y);
+                ctx.translate(ghost.x, ghost.y + bob);
                 ctx.rotate(ghost.angle);
-                ctx.fillStyle = '#4a9eff';
-                ctx.beginPath();
-                ctx.arc(0, 0, this.radius * 0.8, 0, Math.PI * 2);
-                ctx.fill();
+                ctx.drawImage(SPRITES.marine, -32, -32, 64, 64);
                 ctx.restore();
             });
-            
+
             ctx.save();
-            ctx.translate(this.x, this.y);
+            ctx.translate(this.x, this.y + bob);
             ctx.rotate(this.angle);
-            
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.32)';
+            ctx.beginPath();
+            ctx.ellipse(0, 16, 14, 8, 0, 0, Math.PI * 2);
+            ctx.fill();
+
             if (this.dashActive) {
                 ctx.shadowBlur = 20;
                 ctx.shadowColor = '#4a9eff';
-                // Dash invulnerability outline
                 ctx.strokeStyle = '#0ff';
                 ctx.lineWidth = 3;
                 ctx.beginPath();
@@ -1049,47 +1136,36 @@
                 ctx.stroke();
                 ctx.globalAlpha = 1;
             }
-            
+
             if (this.invulnerable > 0 && !this.dashActive) {
                 ctx.globalAlpha = 0.5 + 0.5 * Math.sin(this.invulnerable * 20);
             }
-            
-            // Marine body
-            ctx.fillStyle = '#2f6ca8';
-            ctx.fillRect(-10, -8, 15, 16);
-            ctx.fillStyle = '#1c3f63';
-            ctx.fillRect(-8, -6, 11, 12);
 
-            // Marine helmet
-            ctx.fillStyle = '#6ea6d9';
-            ctx.beginPath();
-            ctx.arc(-1, -11, 7, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.fillStyle = '#bfe7ff';
-            ctx.fillRect(-5, -14, 7, 4);
+            ctx.drawImage(SPRITES.marine, -32, -32, 64, 64);
 
-            // Rifle
+            // Weapon arm + barrel oriented with player angle
+            ctx.fillStyle = '#6f8199';
+            ctx.fillRect(2 - this.recoilOffset, -3, 8, 6);
             ctx.fillStyle = '#3f4b57';
-            ctx.fillRect(3 - this.recoilOffset, -3, 16, 6);
+            ctx.fillRect(8 - this.recoilOffset, -2.5, 14, 5);
             ctx.fillStyle = '#8a98a8';
-            ctx.fillRect(14 - this.recoilOffset, -2, 5, 4);
+            ctx.fillRect(18 - this.recoilOffset, -1.5, 6, 3);
 
-            // Muzzle flash VFX
             if (this.muzzleFlash > 0) {
                 ctx.globalAlpha = this.muzzleFlash;
                 ctx.fillStyle = '#ffe9a0';
                 ctx.beginPath();
-                ctx.moveTo(20 - this.recoilOffset, 0);
-                ctx.lineTo(28 - this.recoilOffset, -4);
-                ctx.lineTo(32 - this.recoilOffset, 0);
-                ctx.lineTo(28 - this.recoilOffset, 4);
+                ctx.moveTo(24 - this.recoilOffset, 0);
+                ctx.lineTo(31 - this.recoilOffset, -4);
+                ctx.lineTo(34 - this.recoilOffset, 0);
+                ctx.lineTo(31 - this.recoilOffset, 4);
                 ctx.closePath();
                 ctx.fill();
                 ctx.globalAlpha = 1;
             }
 
             ctx.restore();
-            
+
             // HP bar
             const barWidth = 60;
             const barHeight = 6;
@@ -1154,26 +1230,24 @@
         }
 
         render(ctx) {
-            const dist = Math.sqrt((this.x - this.prevX) ** 2 + (this.y - this.prevY) ** 2);
-            if (dist > 0) {
-                ctx.strokeStyle = this.color;
-                ctx.lineWidth = this.isEnemy ? 1.5 : 2;
-                ctx.globalAlpha = 0.7;
-                ctx.shadowBlur = 6;
-                ctx.shadowColor = this.color;
-                ctx.beginPath();
-                ctx.moveTo(this.prevX, this.prevY);
-                ctx.lineTo(this.x, this.y);
-                ctx.stroke();
-                ctx.shadowBlur = 0;
-                ctx.globalAlpha = 1;
-            }
-            
-            ctx.shadowBlur = 6;
+            const tracerLen = this.isEnemy ? 9 : (this.splash > 0 ? 18 : 14);
+            const tx = Math.cos(this.angle) * tracerLen;
+            const ty = Math.sin(this.angle) * tracerLen;
+
+            ctx.strokeStyle = this.color;
+            ctx.lineWidth = this.isEnemy ? 2 : 2.6;
+            ctx.globalAlpha = 0.85;
+            ctx.shadowBlur = this.isEnemy ? 5 : 9;
             ctx.shadowColor = this.color;
-            ctx.fillStyle = this.color;
             ctx.beginPath();
-            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.moveTo(this.x - tx, this.y - ty);
+            ctx.lineTo(this.x, this.y);
+            ctx.stroke();
+
+            ctx.globalAlpha = 1;
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.isEnemy ? 1.6 : 2, 0, Math.PI * 2);
             ctx.fill();
             ctx.shadowBlur = 0;
         }
@@ -1196,6 +1270,8 @@
             this.damage = stats.damage;
             this.color = stats.color;
             this.flashColor = stats.flash;
+            this.variant = stats.variant;
+            this.animT = Math.random() * Math.PI * 2;
             this.hitFlash = 0;
             this.shootCooldown = randRange(0.8, 1.6);
             this.active = true;
@@ -1205,6 +1281,7 @@
             if (this.hitFlash > 0) {
                 this.hitFlash -= dt;
             }
+            this.animT += dt * (this.type === 'skitter' ? 9 : 5);
             const dx = player.x - this.x;
             const dy = player.y - this.y;
             const dist = Math.sqrt(dx * dx + dy * dy) || 1;
@@ -1225,42 +1302,98 @@
         }
 
         render(ctx) {
+            const sprite = SPRITES.alien[this.variant];
+            const size = this.radius * 2.9;
+            const legAmp = this.type === 'skitter' ? 5 : 3;
+            const legSpan = this.type === 'skitter' ? 13 : 16;
+            const legCount = this.type === 'skitter' ? 3 : 2;
+
             ctx.save();
             ctx.translate(this.x, this.y);
-            const baseColor = this.hitFlash > 0 ? this.flashColor : this.color;
-            ctx.fillStyle = baseColor;
+            ctx.rotate(Math.atan2(player.y - this.y, player.x - this.x));
+
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.28)';
+            ctx.beginPath();
+            ctx.ellipse(0, 10, this.radius * 0.95, this.radius * 0.45, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = this.type === 'skitter' ? '#b1f695' : '#bea6f2';
+            ctx.lineWidth = this.type === 'skitter' ? 2.3 : 3;
+            for (let i = 0; i < legCount; i++) {
+                const lane = i - (legCount - 1) / 2;
+                const y = lane * legSpan;
+                const wiggle = Math.sin(this.animT + i * 1.7) * legAmp;
+                ctx.beginPath();
+                ctx.moveTo(-6, y);
+                ctx.lineTo(-this.radius - 4, y + wiggle);
+                ctx.moveTo(6, y);
+                ctx.lineTo(this.radius + 4, y - wiggle);
+                ctx.stroke();
+            }
+
             ctx.shadowBlur = this.type === 'brute' ? 10 : 6;
             ctx.shadowColor = this.color;
-
-            if (this.type === 'skitter') {
-                ctx.beginPath();
-                ctx.ellipse(0, 0, this.radius, this.radius * 0.7, 0, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = '#1c2f12';
-                ctx.fillRect(-3, -2, 8, 4);
-                ctx.strokeStyle = '#ccff99';
-                ctx.lineWidth = 2;
-                for (let i = -1; i <= 1; i++) {
-                    ctx.beginPath();
-                    ctx.moveTo(-this.radius + 2, i * 4);
-                    ctx.lineTo(-this.radius - 5, i * 6);
-                    ctx.moveTo(this.radius - 2, i * 4);
-                    ctx.lineTo(this.radius + 5, i * 6);
-                    ctx.stroke();
-                }
-            } else {
-                ctx.beginPath();
-                ctx.ellipse(0, 0, this.radius, this.radius * 0.85, 0, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = '#d9c6ff';
-                ctx.beginPath();
-                ctx.arc(-5, -3, 3, 0, Math.PI * 2);
-                ctx.arc(5, -3, 3, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.fillStyle = '#4d2f88';
-                ctx.fillRect(-6, 3, 12, 4);
-            }
+            ctx.drawImage(sprite, -size / 2, -size / 2, size, size);
             ctx.shadowBlur = 0;
+
+            if (this.hitFlash > 0) {
+                ctx.save();
+                ctx.globalCompositeOperation = 'lighter';
+                ctx.globalAlpha = clamp(this.hitFlash * 7, 0, 0.65);
+                ctx.drawImage(sprite, -size / 2, -size / 2, size, size);
+                ctx.fillStyle = this.flashColor;
+                ctx.fillRect(-size / 2, -size / 2, size, size);
+                ctx.restore();
+            }
+
+            ctx.restore();
+        }
+    }
+
+
+    class AcidDecal {
+        constructor() {
+            this.active = false;
+        }
+
+        reset(x, y) {
+            this.x = x;
+            this.y = y;
+            this.age = 0;
+            this.lifetime = randRange(4.5, 7);
+            this.alpha = randRange(0.25, 0.45);
+            this.droplets = [];
+            const dropCount = Math.floor(randRange(3, 6));
+            for (let i = 0; i < dropCount; i++) {
+                this.droplets.push({
+                    x: randRange(-8, 8),
+                    y: randRange(-8, 8),
+                    r: randRange(1.6, 4.2)
+                });
+            }
+            this.active = true;
+        }
+
+        update(dt) {
+            this.age += dt;
+        }
+
+        isDead() {
+            return this.age >= this.lifetime;
+        }
+
+        render(ctx) {
+            const lifeAlpha = (1 - this.age / this.lifetime) * this.alpha;
+            ctx.save();
+            ctx.translate(this.x, this.y);
+            ctx.globalAlpha = lifeAlpha;
+            ctx.fillStyle = '#78ff68';
+            for (let i = 0; i < this.droplets.length; i++) {
+                const d = this.droplets[i];
+                ctx.beginPath();
+                ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+                ctx.fill();
+            }
             ctx.restore();
         }
     }
@@ -1565,6 +1698,16 @@
         floaters.push(floater);
     }
 
+    function spawnAcidDecal(x, y) {
+        const maxDecals = getCap('maxDecals');
+        if (decals.length >= maxDecals) {
+            removeAt(decals, 0, decalPool);
+        }
+        const decal = getFromPool(decalPool, () => new AcidDecal());
+        decal.reset(x + randRange(-4, 4), y + randRange(-4, 4));
+        decals.push(decal);
+    }
+
     function applyPickup(type) {
         if (type === 'health') {
             player.hp = clamp(player.hp + 5, 0, player.maxHp);
@@ -1733,6 +1876,7 @@
                     enemy.hitFlash = 0.1;
                     enemy.hp -= bullet.damage * (buffs.damage > 0 ? 1.3 : 1);
                     spawnHitSparks(bullet.x, bullet.y, enemy.type === 'brute' ? 9 : 6);
+                    spawnAcidDecal(bullet.x, bullet.y);
                     playSound(360, 0.05, 'alienHit', 0.18, 20);
 
                     if (bullet.splash > 0 && !bullet.exploded && explosionsThisFrame < MAX_EXPLOSIONS_PER_FRAME) {
@@ -1838,6 +1982,7 @@
         enemyBullets = [];
         pickups = [];
         floaters = [];
+        decals = [];
         score = 0;
         wave = 1;
         enemySpawnTimer = 0;
@@ -1919,6 +2064,7 @@
                 }
             }
             
+            for (let i = 0; i < decals.length; i++) decals[i].render(ctx);
             for (let i = 0; i < pickups.length; i++) pickups[i].render(ctx);
             for (let i = 0; i < bullets.length; i++) bullets[i].render(ctx);
             for (let i = 0; i < enemyBullets.length; i++) enemyBullets[i].render(ctx);
@@ -2095,6 +2241,14 @@
                 enemies[i].update(dt);
             }
 
+            for (let i = decals.length - 1; i >= 0; i--) {
+                const decal = decals[i];
+                decal.update(dt);
+                if (decal.isDead()) {
+                    removeAt(decals, i, decalPool);
+                }
+            }
+
             for (let i = particles.length - 1; i >= 0; i--) {
                 const p = particles[i];
                 p.update(dt);
@@ -2142,18 +2296,21 @@
         render();
 
         // UI
+        ctx.fillStyle = '#9fe2ff';
+        ctx.font = 'bold 18px monospace';
+        ctx.fillText('Alien Shooter 2D', 10, 26);
         ctx.fillStyle = '#fff';
         ctx.font = '20px monospace';
-        ctx.fillText(`Score: ${score}`, 10, 30);
-        ctx.fillText(`Wave: ${wave}`, 10, 60);
-        ctx.fillText(`HP: ${Math.max(0, Math.floor(player.hp))}`, 10, 90);
+        ctx.fillText(`Score: ${score}`, 10, 52);
+        ctx.fillText(`Wave: ${wave}`, 10, 82);
+        ctx.fillText(`HP: ${Math.max(0, Math.floor(player.hp))}`, 10, 112);
 
         const weaponId = getActiveWeaponId();
         ctx.fillStyle = '#aaddff';
-        ctx.fillText(`Weapon: ${WEAPONS[weaponId].name}`, 10, 120);
+        ctx.fillText(`Weapon: ${WEAPONS[weaponId].name}`, 10, 142);
         if (weaponId === 'laser') {
             const heatX = 10;
-            const heatY = 135;
+            const heatY = 157;
             const heatW = 120;
             const heatH = 6;
             ctx.fillStyle = '#333';
@@ -2163,23 +2320,23 @@
         }
         if (player.shieldCharges > 0) {
             ctx.fillStyle = '#66ccff';
-            ctx.fillText(`Shield: ${player.shieldCharges}`, 10, 155);
+            ctx.fillText(`Shield: ${player.shieldCharges}`, 10, 177);
         }
 
         let buffLine = 0;
         if (buffs.rapid > 0) {
             ctx.fillStyle = PICKUP_TYPES.rapid.color;
-            ctx.fillText(`Rapid ${buffs.rapid.toFixed(1)}s`, 10, 175 + buffLine * 18);
+            ctx.fillText(`Rapid ${buffs.rapid.toFixed(1)}s`, 10, 197 + buffLine * 18);
             buffLine++;
         }
         if (buffs.damage > 0) {
             ctx.fillStyle = PICKUP_TYPES.damage.color;
-            ctx.fillText(`Damage ${buffs.damage.toFixed(1)}s`, 10, 175 + buffLine * 18);
+            ctx.fillText(`Damage ${buffs.damage.toFixed(1)}s`, 10, 197 + buffLine * 18);
             buffLine++;
         }
         if (weaponOverrideTimer > 0 && weaponOverride) {
             ctx.fillStyle = PICKUP_TYPES.weapon.color;
-            ctx.fillText(`${WEAPONS[weaponOverride].name} ${weaponOverrideTimer.toFixed(1)}s`, 10, 175 + buffLine * 18);
+            ctx.fillText(`${WEAPONS[weaponOverride].name} ${weaponOverrideTimer.toFixed(1)}s`, 10, 197 + buffLine * 18);
         }
         
         if (combo > 1) {
@@ -2255,9 +2412,10 @@
             ctx.fillText(`Particles: ${particles.length}`, canvas.width / dpr - 100, 80);
             ctx.fillText(`Shockwaves: ${shockwaves.length}`, canvas.width / dpr - 150, 100);
             ctx.fillText(`Expl/frame: ${explosionsThisFrame}`, canvas.width / dpr - 150, 120);
+            ctx.fillText('Sprites: ON', canvas.width / dpr - 150, 140);
 
             const inputX = canvas.width / dpr - 240;
-            let inputY = 150;
+            let inputY = 168;
             ctx.fillText(`Kbd: ${inputDebug.keyboard.x.toFixed(2)}, ${inputDebug.keyboard.y.toFixed(2)}`, inputX, inputY);
             inputY += 18;
             ctx.fillText(`Joy: ${inputDebug.joystick.x.toFixed(2)}, ${inputDebug.joystick.y.toFixed(2)}`, inputX, inputY);
