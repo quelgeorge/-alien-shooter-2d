@@ -52,6 +52,11 @@
         const sctx = sprite.getContext('2d');
         sctx.translate(32, 32);
 
+        sctx.fillStyle = 'rgba(0,0,0,0.28)';
+        sctx.beginPath();
+        sctx.ellipse(0, 17, 14, 7, 0, 0, Math.PI * 2);
+        sctx.fill();
+
         sctx.fillStyle = '#27384f';
         sctx.fillRect(-10, 8, 8, 14);
         sctx.fillRect(2, 8, 8, 14);
@@ -80,38 +85,61 @@
 
     function buildAlienSprite(variant) {
         const sprite = document.createElement('canvas');
-        sprite.width = 64;
-        sprite.height = 64;
-        const sctx = sprite.getContext('2d');
-        sctx.translate(32, 32);
+        const isTank = variant === 'tank';
+        sprite.width = isTank ? 72 : 64;
+        sprite.height = isTank ? 72 : 64;
+        const c = sprite.getContext('2d');
+        c.translate(sprite.width / 2, sprite.height / 2);
 
-        if (variant === 'small') {
-            sctx.fillStyle = '#5eb84c';
-            sctx.beginPath();
-            sctx.ellipse(0, 2, 12, 7, 0, 0, Math.PI * 2);
-            sctx.fill();
-            sctx.fillStyle = '#76d962';
-            sctx.beginPath();
-            sctx.ellipse(5, 0, 8, 6, 0, 0, Math.PI * 2);
-            sctx.fill();
-            sctx.fillStyle = '#20381c';
-            sctx.fillRect(-2, -1, 7, 3);
+        if (!isTank) {
+            c.strokeStyle = '#2d5d23';
+            c.lineWidth = 2;
+            for (let i = 0; i < 3; i++) {
+                const y = (i - 1) * 8;
+                c.beginPath();
+                c.moveTo(-4, y);
+                c.lineTo(-18, y - 6);
+                c.moveTo(4, y);
+                c.lineTo(18, y + 6);
+                c.stroke();
+            }
+            c.fillStyle = '#5eb84c';
+            c.beginPath();
+            c.ellipse(0, 2, 12, 7, 0, 0, Math.PI * 2);
+            c.fill();
+            c.fillStyle = '#76d962';
+            c.beginPath();
+            c.ellipse(5, 0, 8, 6, 0, 0, Math.PI * 2);
+            c.fill();
+            c.fillStyle = '#20381c';
+            c.fillRect(-2, -1, 7, 3);
         } else {
-            sctx.fillStyle = '#7d59c6';
-            sctx.beginPath();
-            sctx.ellipse(-1, 3, 15, 10, 0, 0, Math.PI * 2);
-            sctx.fill();
-            sctx.fillStyle = '#a47bf0';
-            sctx.beginPath();
-            sctx.ellipse(8, 0, 10, 8, 0, 0, Math.PI * 2);
-            sctx.fill();
-            sctx.fillStyle = '#dfceff';
-            sctx.beginPath();
-            sctx.arc(9, -2, 2.5, 0, Math.PI * 2);
-            sctx.arc(4, -2, 2.5, 0, Math.PI * 2);
-            sctx.fill();
-            sctx.fillStyle = '#3f2d66';
-            sctx.fillRect(-4, 4, 14, 4);
+            c.strokeStyle = '#47306f';
+            c.lineWidth = 3;
+            for (let i = 0; i < 2; i++) {
+                const y = i === 0 ? -10 : 10;
+                c.beginPath();
+                c.moveTo(-6, y);
+                c.lineTo(-20, y - 6);
+                c.moveTo(6, y);
+                c.lineTo(20, y + 6);
+                c.stroke();
+            }
+            c.fillStyle = '#7d59c6';
+            c.beginPath();
+            c.ellipse(-2, 4, 17, 12, 0, 0, Math.PI * 2);
+            c.fill();
+            c.fillStyle = '#a47bf0';
+            c.beginPath();
+            c.ellipse(8, 0, 11, 9, 0, 0, Math.PI * 2);
+            c.fill();
+            c.fillStyle = '#dfceff';
+            c.beginPath();
+            c.arc(10, -2, 2.5, 0, Math.PI * 2);
+            c.arc(4, -2, 2.5, 0, Math.PI * 2);
+            c.fill();
+            c.fillStyle = '#3f2d66';
+            c.fillRect(-6, 5, 16, 5);
         }
         return sprite;
     }
@@ -237,9 +265,43 @@
     let soundTimestamps = [];
     const maxSoundsPerSecond = 20;
     let masterVolume = 0.35;
-
+    const SETTINGS_KEYS = { volume: 'alienShooter2d.volume', mute: 'alienShooter2d.mute' };
+    let audioContext = null;
+    let audioInitialized = false;
+    let masterGainNode = null;
+    let audioOutputNode = null;
     const debugMobileZones = false;
     
+
+    function saveSettings() {
+        try {
+            localStorage.setItem(SETTINGS_KEYS.volume, String(Math.round(masterVolume * 100)));
+            localStorage.setItem(SETTINGS_KEYS.mute, muted ? '1' : '0');
+        } catch (e) {}
+    }
+
+    function applyAudioState() {
+        if (masterGainNode && audioContext) {
+            masterGainNode.gain.setValueAtTime(muted ? 0 : masterVolume, audioContext.currentTime);
+        }
+        if (muteButton) muteButton.textContent = muted ? '🔇' : '🔊';
+        if (panelMuteButton) panelMuteButton.textContent = `Mute: ${muted ? 'On' : 'Off'}`;
+        if (volumeSlider) volumeSlider.value = String(Math.round(masterVolume * 100));
+        if (volumeValue) volumeValue.textContent = `${Math.round(masterVolume * 100)}%`;
+    }
+
+    function loadSettings() {
+        try {
+            const storedVolume = localStorage.getItem(SETTINGS_KEYS.volume);
+            const storedMute = localStorage.getItem(SETTINGS_KEYS.mute);
+            if (storedVolume !== null) {
+                masterVolume = clamp(Number(storedVolume) / 100, 0, 1);
+            }
+            muted = storedMute === '1';
+        } catch (e) {}
+        applyAudioState();
+    }
+
     function clearInputState() {
         Object.keys(keysDown).forEach((key) => {
             keysDown[key] = false;
@@ -261,12 +323,15 @@
         if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') {
             paused = !paused;
             gameState = paused ? 'paused' : 'playing';
+            playSound(paused ? 180 : 280, 0.08, 'pause', 0.2, 10);
         }
         if (e.key === 'r' || e.key === 'R') {
             restart();
         }
         if (e.key === 'm' || e.key === 'M') {
             muted = !muted;
+            applyAudioState();
+            saveSettings();
         }
         if (e.key === '~' || e.key === '`' || e.key === 'F3') {
             debug = !debug;
@@ -337,7 +402,10 @@
     const mobileControls = document.getElementById('uiOverlay');
     const leftZone = document.getElementById('leftZone');
     const rightZone = document.getElementById('rightZone');
-    const audioHint = document.getElementById('audioHint');
+    const audioStartOverlay = document.getElementById('audioStartOverlay');
+    const volumeSlider = document.getElementById('volumeSlider');
+    const volumeValue = document.getElementById('volumeValue');
+    const panelMuteButton = document.getElementById('panelMuteButton');
 
     function lerp(a, b, t) {
         return a + (b - a) * t;
@@ -403,7 +471,6 @@
             document.body.classList.add('debug-mobile-zones');
         }
         if (mobileControls) mobileControls.classList.add('active');
-        if (audioHint) audioHint.classList.add('show');
         if (leftZone) {
             leftZone.style.display = 'block';
             leftZone.style.pointerEvents = 'auto';
@@ -421,7 +488,6 @@
         document.body.classList.remove('mobile-input');
         document.body.classList.remove('debug-mobile-zones');
         if (mobileControls) mobileControls.classList.remove('active');
-        if (audioHint) audioHint.classList.remove('show');
         if (leftZone) {
             leftZone.style.display = 'none';
             leftZone.style.pointerEvents = 'none';
@@ -606,6 +672,7 @@
         resumeAudio();
         paused = !paused;
         gameState = paused ? 'paused' : 'playing';
+        playSound(paused ? 180 : 280, 0.08, 'pause', 0.2, 10);
     });
     
     muteButton.addEventListener('pointerdown', (e) => {
@@ -613,7 +680,8 @@
         initAudio();
         resumeAudio();
         muted = !muted;
-        muteButton.textContent = muted ? '🔇' : '🔊';
+        applyAudioState();
+        saveSettings();
     });
     
     // Click handlers for desktop compatibility
@@ -631,6 +699,7 @@
         resumeAudio();
         paused = !paused;
         gameState = paused ? 'paused' : 'playing';
+        playSound(paused ? 180 : 280, 0.08, 'pause', 0.2, 10);
     });
     
     muteButton.addEventListener('click', (e) => {
@@ -638,8 +707,48 @@
         initAudio();
         resumeAudio();
         muted = !muted;
-        muteButton.textContent = muted ? '🔇' : '🔊';
+        applyAudioState();
+        saveSettings();
+        playSound(620, 0.03, 'uiClick', 0.2, 20);
     });
+
+    function beginFromGesture() {
+        if (audioStartOverlay) audioStartOverlay.classList.remove('show');
+        initAudio();
+        resumeAudio();
+    }
+
+    ['pointerdown', 'touchstart', 'keydown'].forEach((evt) => {
+        window.addEventListener(evt, beginFromGesture, { once: true, passive: evt !== 'keydown' });
+    });
+
+    if (audioStartOverlay) {
+        audioStartOverlay.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            beginFromGesture();
+        });
+        audioStartOverlay.addEventListener('keydown', beginFromGesture);
+    }
+
+    if (volumeSlider) {
+        volumeSlider.addEventListener('input', () => {
+            masterVolume = clamp(Number(volumeSlider.value) / 100, 0, 1);
+            applyAudioState();
+            saveSettings();
+        });
+    }
+
+    if (panelMuteButton) {
+        panelMuteButton.addEventListener('click', () => {
+            muted = !muted;
+            applyAudioState();
+            saveSettings();
+            initAudio();
+            playSound(620, 0.03, 'uiClick', 0.2, 20);
+        });
+    }
+
+    loadSettings();
     
     // Prevent default touch behaviors
     document.addEventListener('touchstart', (e) => {
@@ -654,25 +763,26 @@
         }
     }, { passive: false });
     
-    // Initialize audio on first user interaction
-    document.addEventListener('pointerdown', initAudio, { once: true });
-    document.addEventListener('touchstart', initAudio, { once: true });
-    document.addEventListener('click', initAudio, { once: true });
 
     // ===== Audio =====
     // Audio context and sounds (mobile-friendly lazy init)
-    let audioContext = null;
-    let audioInitialized = false;
-    
     function initAudio() {
-        if (audioInitialized || muted) return;
-        try {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        if (audioInitialized) return;
+        const Ctx = window.AudioContext || window.webkitAudioContext;
+        if (!Ctx) {
             audioInitialized = true;
-            const hint = document.getElementById('audioHint');
-            if (hint) hint.classList.remove('show');
+            return;
+        }
+        try {
+            audioContext = new Ctx();
+            masterGainNode = audioContext.createGain();
+            masterGainNode.gain.value = muted ? 0 : masterVolume;
+            masterGainNode.connect(audioContext.destination);
+            audioOutputNode = masterGainNode;
+            audioInitialized = true;
         } catch (e) {
             console.warn('WebAudio not supported');
+            audioInitialized = true;
         }
     }
     
@@ -684,7 +794,7 @@
     
     function playSound(frequency, duration, type = 'sine', volume = 0.3, pitchVariation = 0) {
         if (muted || !audioContext) return;
-        const scaledVolume = Math.max(0, volume * masterVolume);
+        const scaledVolume = Math.max(0, volume);
         
         // Sound spam limiter
         const now = Date.now();
@@ -715,8 +825,8 @@
                 
                 osc1.connect(gain1);
                 osc2.connect(gain2);
-                gain1.connect(audioContext.destination);
-                gain2.connect(audioContext.destination);
+                gain1.connect(audioOutputNode || audioContext.destination);
+                gain2.connect(audioOutputNode || audioContext.destination);
                 osc1.start();
                 osc2.start();
                 osc1.stop(audioContext.currentTime + duration);
@@ -730,7 +840,7 @@
                 gain.gain.setValueAtTime(scaledVolume * 0.8, audioContext.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
                 osc.connect(gain);
-                gain.connect(audioContext.destination);
+                gain.connect(audioOutputNode || audioContext.destination);
                 osc.start();
                 osc.stop(audioContext.currentTime + duration);
             } else if (type === 'laser') {
@@ -741,7 +851,7 @@
                 gain.gain.setValueAtTime(scaledVolume * 0.25, audioContext.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
                 osc.connect(gain);
-                gain.connect(audioContext.destination);
+                gain.connect(audioOutputNode || audioContext.destination);
                 osc.start();
                 osc.stop(audioContext.currentTime + duration);
             } else if (type === 'rocket') {
@@ -753,7 +863,7 @@
                 gain.gain.setValueAtTime(scaledVolume * 0.5, audioContext.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
                 osc.connect(gain);
-                gain.connect(audioContext.destination);
+                gain.connect(audioOutputNode || audioContext.destination);
                 osc.start();
                 osc.stop(audioContext.currentTime + duration);
             } else if (type === 'kill') {
@@ -776,8 +886,8 @@
                 
                 osc1.connect(gain1);
                 osc2.connect(gain2);
-                gain1.connect(audioContext.destination);
-                gain2.connect(audioContext.destination);
+                gain1.connect(audioOutputNode || audioContext.destination);
+                gain2.connect(audioOutputNode || audioContext.destination);
                 osc1.start();
                 osc2.start();
                 osc1.stop(audioContext.currentTime + duration);
@@ -791,7 +901,7 @@
                 gain.gain.setValueAtTime(scaledVolume, audioContext.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
                 osc.connect(gain);
-                gain.connect(audioContext.destination);
+                gain.connect(audioOutputNode || audioContext.destination);
                 osc.start();
                 osc.stop(audioContext.currentTime + duration);
             } else if (type === 'shield') {
@@ -803,7 +913,7 @@
                 gain.gain.setValueAtTime(scaledVolume, audioContext.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
                 osc.connect(gain);
-                gain.connect(audioContext.destination);
+                gain.connect(audioOutputNode || audioContext.destination);
                 osc.start();
                 osc.stop(audioContext.currentTime + duration);
             } else if (type === 'enemyShoot') {
@@ -814,7 +924,7 @@
                 gain.gain.setValueAtTime(scaledVolume * 0.5, audioContext.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
                 osc.connect(gain);
-                gain.connect(audioContext.destination);
+                gain.connect(audioOutputNode || audioContext.destination);
                 osc.start();
                 osc.stop(audioContext.currentTime + duration);
             } else if (type === 'rifle') {
@@ -826,7 +936,7 @@
                 gain.gain.setValueAtTime(scaledVolume * 0.9, audioContext.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
                 osc.connect(gain);
-                gain.connect(audioContext.destination);
+                gain.connect(audioOutputNode || audioContext.destination);
                 osc.start();
                 osc.stop(audioContext.currentTime + duration);
             } else if (type === 'alienHit') {
@@ -838,7 +948,31 @@
                 gain.gain.setValueAtTime(scaledVolume * 0.7, audioContext.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
                 osc.connect(gain);
-                gain.connect(audioContext.destination);
+                gain.connect(audioOutputNode || audioContext.destination);
+                osc.start();
+                osc.stop(audioContext.currentTime + duration);
+            } else if (type === 'uiClick') {
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(frequency, audioContext.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(frequency * 1.4, audioContext.currentTime + duration);
+                gain.gain.setValueAtTime(scaledVolume * 0.7, audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioOutputNode || audioContext.destination);
+                osc.start();
+                osc.stop(audioContext.currentTime + duration);
+            } else if (type === 'pause') {
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(frequency, audioContext.currentTime);
+                osc.frequency.linearRampToValueAtTime(frequency * 0.6, audioContext.currentTime + duration);
+                gain.gain.setValueAtTime(scaledVolume * 0.8, audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(audioOutputNode || audioContext.destination);
                 osc.start();
                 osc.stop(audioContext.currentTime + duration);
             } else if (type === 'dash') {
@@ -851,7 +985,7 @@
                 gain.gain.setValueAtTime(scaledVolume, audioContext.currentTime);
                 gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
                 osc.connect(gain);
-                gain.connect(audioContext.destination);
+                gain.connect(audioOutputNode || audioContext.destination);
                 osc.start();
                 osc.stop(audioContext.currentTime + duration);
             } else if (type === 'wave') {
@@ -870,8 +1004,8 @@
                 gain2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
                 osc1.connect(gain1);
                 osc2.connect(gain2);
-                gain1.connect(audioContext.destination);
-                gain2.connect(audioContext.destination);
+                gain1.connect(audioOutputNode || audioContext.destination);
+                gain2.connect(audioOutputNode || audioContext.destination);
                 osc1.start();
                 osc2.start();
                 osc1.stop(audioContext.currentTime + duration);
@@ -881,7 +1015,7 @@
                 const oscillator = audioContext.createOscillator();
                 const gainNode = audioContext.createGain();
                 oscillator.connect(gainNode);
-                gainNode.connect(audioContext.destination);
+                gainNode.connect(audioOutputNode || audioContext.destination);
                 const pitch = pitchVariation > 0 ? frequency + (Math.random() - 0.5) * pitchVariation : frequency;
                 oscillator.frequency.value = pitch;
                 oscillator.type = type;
@@ -1153,14 +1287,17 @@
 
             if (this.muzzleFlash > 0) {
                 ctx.globalAlpha = this.muzzleFlash;
+                ctx.shadowBlur = 18;
+                ctx.shadowColor = '#ffd27a';
                 ctx.fillStyle = '#ffe9a0';
                 ctx.beginPath();
                 ctx.moveTo(24 - this.recoilOffset, 0);
-                ctx.lineTo(31 - this.recoilOffset, -4);
-                ctx.lineTo(34 - this.recoilOffset, 0);
-                ctx.lineTo(31 - this.recoilOffset, 4);
+                ctx.lineTo(37 - this.recoilOffset, -6);
+                ctx.lineTo(43 - this.recoilOffset, 0);
+                ctx.lineTo(37 - this.recoilOffset, 6);
                 ctx.closePath();
                 ctx.fill();
+                ctx.shadowBlur = 0;
                 ctx.globalAlpha = 1;
             }
 
@@ -1303,7 +1440,8 @@
 
         render(ctx) {
             const sprite = SPRITES.alien[this.variant];
-            const size = this.radius * 2.9;
+            const pulse = this.type === 'brute' ? 1 + Math.sin(this.animT * 0.6) * 0.05 : 1;
+            const size = (this.radius * 2.9) * pulse;
             const legAmp = this.type === 'skitter' ? 5 : 3;
             const legSpan = this.type === 'skitter' ? 13 : 16;
             const legCount = this.type === 'skitter' ? 3 : 2;
@@ -1837,7 +1975,7 @@
         lastShotTime = now;
         weaponCooldown = fireRate;
         player.recoilOffset = weaponId === 'shotgun' ? 5 : 3;
-        player.muzzleFlash = weaponId === 'shotgun' ? 0.9 : 0.7;
+        player.muzzleFlash = weaponId === 'shotgun' ? 1 : 0.82;
         if (weaponId === 'pistol') {
             playSound(780, 0.05, 'rifle', 0.3, 50);
         } else {
@@ -2298,7 +2436,7 @@
         // UI
         ctx.fillStyle = '#9fe2ff';
         ctx.font = 'bold 18px monospace';
-        ctx.fillText('Alien Shooter 2D', 10, 26);
+        ctx.fillText('ALIEN SHOOTER 2D', 10, 26);
         ctx.fillStyle = '#fff';
         ctx.font = '20px monospace';
         ctx.fillText(`Score: ${score}`, 10, 52);
